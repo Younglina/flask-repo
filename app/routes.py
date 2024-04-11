@@ -6,6 +6,8 @@ Description:
 
 from flask import Flask, request, send_file, jsonify
 from werkzeug.utils import secure_filename
+from spire.doc import *
+from spire.doc.common import *
 from PIL import Image
 import io
 import os
@@ -36,8 +38,11 @@ def conver_image(ctype):
             "jpg2png": {"format": "PNG", "nfix": "png"},
             "png2jpg": {"format": "JPEG", "nfix": "jpg"},
         }
-        img.save(img_io, types[ctype]["format"])
-        img_io.seek(0)
+        if ctype == "word2png":
+            word2png(filepath, filename)
+        else:
+            img.save(img_io, types[ctype]["format"])
+            img_io.seek(0)
 
         # os.remove(filepath)
         return send_file(
@@ -46,3 +51,25 @@ def conver_image(ctype):
             mimetype="image/png",
             download_name=f"{os.path.splitext(filename)[0]}.{types[ctype]['nfix']}",
         )
+
+
+def word2png(filepath, filename):
+
+    # Create a Document object
+    document = Document()
+
+    # Load a Word file
+    document.LoadFromFile(filepath)
+
+    # Loop through the pages in the document
+    for i in range(document.GetPageCount()):
+
+        # Convert a specific page to bitmap image
+        imageStream = document.SaveImageToStreams(i, ImageType.Bitmap)
+
+        # Save the bitmap to a PNG file
+        img_name = os.path.splitext(filename)[0] + str(i) + ".png"
+        with open(img_name, "wb") as imageFile:
+            imageFile.write(imageStream.ToArray())
+
+    document.Close()
