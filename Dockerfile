@@ -11,5 +11,5 @@ EXPOSE 5000
 
 # 设置启动命令为运行Flask应用
 # CMD ["flask", "run"]
-RUN chmod +x /app/flask/app/init.sh
-ENTRYPOINT ["/app/flask/app/init.sh"]
+RUN chmod +x /app/flask/init.sh
+ENTRYPOINT ["/app/flask/init.sh"]

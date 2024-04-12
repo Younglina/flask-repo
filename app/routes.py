@@ -1,17 +1,14 @@
-"""
-Author: Younglina younglina0409@outlook.com
-Date: 2024-04-10 16:24:25
-Description: 
-"""
-
 from flask import Flask, request, send_file, jsonify
 from werkzeug.utils import secure_filename
-from spire.doc import *
-from spire.doc.common import *
+import fitz
+import zipfile
+import uuid
+
 from PIL import Image
+
+# import aspose.words as aw
 import io
 import os
-
 from app import app
 
 UPLOAD_FOLDER = os.path.join(app.root_path, "uploads")
@@ -28,48 +25,65 @@ def conver_image(ctype):
         return jsonify({"message": "No file selected for uploading"}), 400
 
     if file:
-        filename = secure_filename(file.filename)
+        uuid_v4 = uuid.uuid4()
+        filename = str(uuid_v4) + "_" + secure_filename(file.filename)
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
-        img = Image.open(filepath)
-        img_io = io.BytesIO()
-        types = {
-            "jpg2png": {"format": "PNG", "nfix": "png"},
-            "png2jpg": {"format": "JPEG", "nfix": "jpg"},
-        }
-        if ctype == "word2png":
-            word2png(filepath, filename)
+        if ctype == "word2jpg":
+            # word2jpgAspose(filepath, filename)
+            # word_to_pdf(filepath, filename)
+            return {"code": 200}
+        if ctype == "pdf2jpg":
+            pdf2jpg(filepath, filename)
+            to_zip(filename)
+            return {"code": 200}
         else:
+            img = Image.open(filepath)
+            img_io = io.BytesIO()
+            types = {
+                "jpg2png": {"format": "PNG", "nfix": "png"},
+                "png2jpg": {"format": "JPEG", "nfix": "jpg"},
+            }
             img.save(img_io, types[ctype]["format"])
             img_io.seek(0)
+            # os.remove(filepath)
+            return send_file(
+                img_io,
+                as_attachment=True,
+                mimetype="image/png",
+                download_name=f"{os.path.splitext(filename)[0]}.{types[ctype]['nfix']}",
+            )
 
-        # os.remove(filepath)
-        return send_file(
-            img_io,
-            as_attachment=True,
-            mimetype="image/png",
-            download_name=f"{os.path.splitext(filename)[0]}.{types[ctype]['nfix']}",
-        )
+
+def pdf2jpg(filepath, filename):
+    doc = fitz.open(filepath)
+    temppath = os.path.join(app.config["UPLOAD_FOLDER"])
+    tempname = os.path.splitext(filename)[0]
+    for page_index in range(doc.page_count):
+        page = doc.load_page(page_index)
+        image_bytes = page.get_pixmap(dpi=300).tobytes("png")
+        with open(f"{temppath}/{tempname+str(page_index)}.png", "wb") as f:
+            f.write(image_bytes)
 
 
-def word2png(filepath, filename):
+def to_zip(filename):
+    temppath = os.path.join(app.config["UPLOAD_FOLDER"])
+    tempname = os.path.splitext(filename)[0]
+    with zipfile.ZipFile(f"{tempname}.zip", "w", zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(temppath):
+            for file in files:
+                if file.startswith(filename) and file.endswith((".png", ".jpg")):
+                    abs_file_path = os.path.join(root, file)
+                    arc_name = os.path.relpath(abs_file_path, os.path.dirname(temppath))
+                    zipf.write(abs_file_path, arc_name)
 
-    # Create a Document object
-    document = Document()
 
-    # Load a Word file
-    document.LoadFromFile(filepath)
+# def word2jpgAspose(filepath, filename):
+#     doc = aw.Document(filepath)
+#     options = aw.saving.ImageSaveOptions(aw.SaveFormat.JPEG)
 
-    # Loop through the pages in the document
-    for i in range(document.GetPageCount()):
-
-        # Convert a specific page to bitmap image
-        imageStream = document.SaveImageToStreams(i, ImageType.Bitmap)
-
-        # Save the bitmap to a PNG file
-        img_name = os.path.splitext(filename)[0] + str(i) + ".png"
-        with open(img_name, "wb") as imageFile:
-            imageFile.write(imageStream.ToArray())
-
-    document.Close()
+#     for pageNumber in range(doc.page_count):
+#         options.page_set = aw.saving.PageSet(pageNumber)
+#         img_name = os.path.splitext(filename)[0] + str(pageNumber) + ".jpg"
+#         doc.save(img_name, options)
