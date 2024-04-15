@@ -2,6 +2,7 @@ from flask import Flask, request, send_file, jsonify
 import fitz
 import zipfile
 import uuid
+import base64
 
 from PIL import Image
 
@@ -50,13 +51,16 @@ def conver_image(ctype):
                 img = img.convert("RGB")
             img.save(img_io, types[ctype]["format"])
             img_io.seek(0)
+            # 将图像转换为base64字符串
+            base64_img = base64.b64encode(img_io.getvalue()).decode("utf-8")
+            return {"code": 200, "data": base64_img}
             # os.remove(filepath)
-            return send_file(
-                img_io,
-                as_attachment=True,
-                mimetype="image/png",
-                download_name=f"{notype_name}.{types[ctype]['nfix']}",
-            )
+            # return send_file(
+            #     img_io,
+            #     as_attachment=True,
+            #     mimetype="image/png",
+            #     download_name=f"{notype_name}.{types[ctype]['nfix']}",
+            # )
 
 
 def pdf2jpg(filepath, uid_filename):
