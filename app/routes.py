@@ -1,5 +1,4 @@
 from flask import Flask, request, send_file, jsonify
-from werkzeug.utils import secure_filename
 import fitz
 import zipfile
 import uuid
@@ -26,17 +25,18 @@ def conver_image(ctype):
 
     if file:
         uuid_v4 = uuid.uuid4()
-        filename = str(uuid_v4) + "_" + secure_filename(file.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        origin_name = file.filename
+        notype_name = os.path.splitext(origin_name)[0]
+        uid_filename = str(uuid_v4) + "_" + origin_name
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], uid_filename)
         file.save(filepath)
 
         if ctype == "word2jpg":
             # word2jpgAspose(filepath, filename)
-            # word_to_pdf(filepath, filename)
             return {"code": 200}
         if ctype == "pdf2jpg":
-            pdf2jpg(filepath, filename)
-            to_zip(filename)
+            pdf2jpg(filepath, uid_filename)
+            to_zip(notype_name, uuid_v4=str(uuid_v4))
             return {"code": 200}
         else:
             img = Image.open(filepath)
@@ -45,6 +45,9 @@ def conver_image(ctype):
                 "jpg2png": {"format": "PNG", "nfix": "png"},
                 "png2jpg": {"format": "JPEG", "nfix": "jpg"},
             }
+            # 如果图像模式为RGBA，则转换为RGB
+            if img.mode == "RGBA":
+                img = img.convert("RGB")
             img.save(img_io, types[ctype]["format"])
             img_io.seek(0)
             # os.remove(filepath)
@@ -52,31 +55,36 @@ def conver_image(ctype):
                 img_io,
                 as_attachment=True,
                 mimetype="image/png",
-                download_name=f"{os.path.splitext(filename)[0]}.{types[ctype]['nfix']}",
+                download_name=f"{notype_name}.{types[ctype]['nfix']}",
             )
 
 
-def pdf2jpg(filepath, filename):
+def pdf2jpg(filepath, uid_filename):
     doc = fitz.open(filepath)
     temppath = os.path.join(app.config["UPLOAD_FOLDER"])
-    tempname = os.path.splitext(filename)[0]
+    tempname = os.path.splitext(uid_filename)[0]
     for page_index in range(doc.page_count):
         page = doc.load_page(page_index)
         image_bytes = page.get_pixmap(dpi=300).tobytes("png")
-        with open(f"{temppath}/{tempname+str(page_index)}.png", "wb") as f:
+        image_filename = f"{tempname}{page_index}.png"
+        image_path = os.path.join(temppath, image_filename)
+        with open(image_path, "wb") as f:
             f.write(image_bytes)
 
 
-def to_zip(filename):
+def to_zip(notype_name, uuid_v4):
     temppath = os.path.join(app.config["UPLOAD_FOLDER"])
-    tempname = os.path.splitext(filename)[0]
-    with zipfile.ZipFile(f"{tempname}.zip", "w", zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(temppath):
+    with zipfile.ZipFile(
+        f"{os.path.join(temppath, notype_name)}.zip", "w", zipfile.ZIP_DEFLATED
+    ) as zipf:
+        for root, _, files in os.walk(temppath):
             for file in files:
-                if file.startswith(filename) and file.endswith((".png", ".jpg")):
+                if file.startswith(uuid_v4) and file.endswith((".png", ".jpg")):
                     abs_file_path = os.path.join(root, file)
-                    arc_name = os.path.relpath(abs_file_path, os.path.dirname(temppath))
-                    zipf.write(abs_file_path, arc_name)
+                    zipf.write(
+                        abs_file_path,
+                        os.path.basename(file.replace(uuid_v4 + "_", "")),
+                    )
 
 
 # def word2jpgAspose(filepath, filename):
