@@ -1,5 +1,6 @@
 <script setup>
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import { ref } from 'vue'
 import WyButton from './components/wyButton.vue';
 
@@ -10,7 +11,10 @@ const tabs = [
   { label: 'PDF转PNG', value: 'pdf2png', covertType: 'png' },
 ]
 const currnetTab = ref(tabs[0])
+const uuid = ref(uuidv4())
+
 const filesList = ref([])
+
 async function handleFileChange(event) {
   const files = event.target.files || event.dataTransfer.files
   for (let i = 0; i < files.length; i++) {
@@ -25,8 +29,9 @@ async function handleFileChange(event) {
     if (item.uploadProgress !== 0) continue
     const formData = new FormData()
     formData.append('file', item.file)
+    formData.append('uuid', uuid.value)
     const res = await axios({
-      url: "/convert/jpg2png",
+      url: `/convert/${currnetTab.value.value}`,
       method: "POST",
       data: formData,
       headers: {
@@ -39,6 +44,11 @@ async function handleFileChange(event) {
     item.uploadProgress = 101
     item.dataSource = "data:image/png;base64," + res.data.data
   }
+}
+function handleTabChange(tab) {
+  currnetTab.value = tab
+  document.getElementById('inputFile').value = ''
+  filesList.value = []
 }
 function handleDownload(file) {
   const base64Data = file.dataSource;
@@ -62,15 +72,15 @@ function handleDragover(e) {
 <template>
   <div id="app">
     <ul class="tabs">
-      <li v-for="item in tabs" :key="item.value" @click="currnetTab = item"
+      <li v-for="item in tabs" :key="item.value" @click="handleTabChange(item)"
         :class="{ 'active': currnetTab.value === item.value }">{{ item.label }}</li>
     </ul>
 
     <div class="file-wrapper">
-      <input type="file" ref="file" style="display: none" multiple @change="handleFileChange">
+      <input type="file" id="inputFile" ref="inputFile" style="display: none" multiple @change="handleFileChange">
       <div class="file-opts">
-        <WyButton types="round" @click="$refs.file.click()" color="blue">上传</WyButton>
-        <WyButton types="round" @click="$refs.file.click()" color="org">清空</WyButton>
+        <WyButton types="round" @click="$refs.inputFile.click()" color="blue">上传</WyButton>
+        <WyButton types="round" @click="$refs.inputFile.click()" color="org">清空</WyButton>
       </div>
       <div class="file-list-wrapper">
         <div v-if="filesList.length === 0" class="file-drop" @dragover="handleDragover" @drop="handleDrop">

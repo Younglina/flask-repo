@@ -1,7 +1,6 @@
 from flask import Flask, request, send_file, jsonify
 import fitz
 import zipfile
-import uuid
 import base64
 
 from PIL import Image
@@ -25,20 +24,26 @@ def conver_image(ctype):
         return jsonify({"message": "No file selected for uploading"}), 400
 
     if file:
-        uuid_v4 = uuid.uuid4()
-        origin_name = file.filename
-        notype_name = os.path.splitext(origin_name)[0]
-        uid_filename = str(uuid_v4) + "_" + origin_name
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], uid_filename)
+        uuid_v4 = str(request.form.get("uuid"))
+        notype_name = os.path.splitext(file.filename)[0]
+        directory = os.path.join(app.config["UPLOAD_FOLDER"], uuid_v4)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], uuid_v4, file.filename)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
         file.save(filepath)
-
+        pass
         if ctype == "word2jpg":
             # word2jpgAspose(filepath, filename)
             return {"code": 200}
-        if ctype == "pdf2jpg":
-            pdf2jpg(filepath, uid_filename)
-            to_zip(notype_name, uuid_v4=str(uuid_v4))
-            return {"code": 200}
+        if ctype == "pdf2png":
+            pdf2png(filepath, directory, notype_name)
+            to_zip(directory, notype_name, uuid_v4)
+            with open(
+                os.path.join(directory, f"{notype_name}0.png"), "rb"
+            ) as image_file:
+                image_data = image_file.read()
+                base64_data = base64.b64encode(image_data).decode("utf-8")
+                return {"code": 200, "data": base64_data}
         else:
             img = Image.open(filepath)
             img_io = io.BytesIO()
@@ -63,31 +68,28 @@ def conver_image(ctype):
             # )
 
 
-def pdf2jpg(filepath, uid_filename):
+def pdf2png(filepath, directory, notype_name):
     doc = fitz.open(filepath)
-    temppath = os.path.join(app.config["UPLOAD_FOLDER"])
-    tempname = os.path.splitext(uid_filename)[0]
     for page_index in range(doc.page_count):
         page = doc.load_page(page_index)
         image_bytes = page.get_pixmap(dpi=300).tobytes("png")
-        image_filename = f"{tempname}{page_index}.png"
-        image_path = os.path.join(temppath, image_filename)
+        image_filename = f"{notype_name}{page_index}.png"
+        image_path = os.path.join(directory, image_filename)
         with open(image_path, "wb") as f:
             f.write(image_bytes)
 
 
-def to_zip(notype_name, uuid_v4):
-    temppath = os.path.join(app.config["UPLOAD_FOLDER"])
+def to_zip(directory, notype_name, uuid_v4):
     with zipfile.ZipFile(
-        f"{os.path.join(temppath, notype_name)}.zip", "w", zipfile.ZIP_DEFLATED
+        f"{os.path.join(directory, notype_name)}.zip", "w", zipfile.ZIP_DEFLATED
     ) as zipf:
-        for root, _, files in os.walk(temppath):
+        for root, _, files in os.walk(directory):
             for file in files:
-                if file.startswith(uuid_v4) and file.endswith((".png", ".jpg")):
+                if file.endswith((".png", ".jpg")):
                     abs_file_path = os.path.join(root, file)
                     zipf.write(
                         abs_file_path,
-                        os.path.basename(file.replace(uuid_v4 + "_", "")),
+                        os.path.basename(file),
                     )
 
 
