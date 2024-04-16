@@ -5,9 +5,16 @@
 -->
 <script setup>
 const props = defineProps({
-  round: false,
+  types: {
+    type: String,
+    default: ''
+  },
+  color: {
+    type: String,
+    default: '',
+  }
 })
-const classs = `btn ${props.round ? 'btn-round' : ''}`
+const classs = `btn ${props.types} ${props.color}`
 </script>
 <template>
   <button :class="classs">
@@ -23,12 +30,43 @@ button {
   padding: 2px;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.7);
   }
 }
 
-.btn-round {
+.round {
   width: 100%;
-  padding: 8px;
+  max-width: 149px;
+  padding: 6px 8px;
+}
+
+.del {
+  border-radius: 50%;
+  font-size: 20px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blue {
+  color: #fff;
+  background-color: #38bdf8;
+  border: 1px solid #38bdf8;
+
+  &:hover {
+    color: #38bdf8;
+  }
+}
+
+.org {
+  color: #fff;
+  background-color: #fb923c;
+  border: 1px solid #fb923c;
+
+  &:hover {
+    color: #fb923c;
+  }
 }
 </style>
