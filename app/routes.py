@@ -13,8 +13,17 @@ from app import app
 UPLOAD_FOLDER = os.path.join(app.root_path, "uploads")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+@app.route("/api/downloadAll/<ctype>", methods=["GET"])
+def download_zip(ctype):
+    uuid = str(request.args.get("uuid"))
+    zip_path = os.path.join(app.config["UPLOAD_FOLDER"], uuid)
+    to_zip(zip_path, ctype)
+    if os.path.exists(zip_path):
+        return send_file(os.path.join(zip_path, f'{ctype}.zip'), as_attachment=True, download_name=f'{ctype}.zip')
+    else:
+        return 'File not found', 404
 
-@app.route("/convert/<ctype>", methods=["POST"])
+@app.route("/api/convert/<ctype>", methods=["POST"])
 def conver_image(ctype):
     if "file" not in request.files:
         return jsonify({"message": "No file part in the request"}), 400
@@ -79,13 +88,13 @@ def pdf2png(filepath, directory, notype_name):
             f.write(image_bytes)
 
 
-def to_zip(directory, notype_name, uuid_v4):
+def to_zip(directory, notype_name):
     with zipfile.ZipFile(
         f"{os.path.join(directory, notype_name)}.zip", "w", zipfile.ZIP_DEFLATED
     ) as zipf:
         for root, _, files in os.walk(directory):
             for file in files:
-                if file.endswith((".png", ".jpg")):
+                if file.endswith((".png", ".jpg", "jpeg")):
                     abs_file_path = os.path.join(root, file)
                     zipf.write(
                         abs_file_path,

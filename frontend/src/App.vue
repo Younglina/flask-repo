@@ -31,7 +31,7 @@ async function handleFileChange(event) {
     formData.append('file', item.file)
     formData.append('uuid', uuid.value)
     const res = await axios({
-      url: `/convert/${currnetTab.value.value}`,
+      url: `/api/convert/${currnetTab.value.value}`,
       method: "POST",
       data: formData,
       headers: {
@@ -57,6 +57,24 @@ function handleDownload(file) {
   link.href = base64Data;
   link.download = fileName;
   link.click();
+}
+function downloadAll(){
+    axios({
+      url: `/api/downloadAll/${currnetTab.value.value}`,
+      method: "get",
+      responseType: 'blob',
+      params: { uuid: uuid.value }
+    }).then(res=>{
+      const blob = new Blob([res.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${currnetTab.value.value}.zip`);
+      link.click();
+    })
+}
+function handleDel(file) {
+  filesList.value = filesList.value.filter(item => item.name !== file.name)
 }
 function handleDrop(e) {
   e.preventDefault();
@@ -86,23 +104,30 @@ function handleDragover(e) {
         <div v-if="filesList.length === 0" class="file-drop" @dragover="handleDragover" @drop="handleDrop">
           <p>可拖拽文件上传</p>
         </div>
-        <ul class="file-list">
+        <ul v-else class="file-list">
           <li v-for="file in filesList" class="file-list__item">
             <header class="file-list__header">
               <p>{{ file.showname }}</p>
-              <WyButton types="del">×</WyButton>
+              <WyButton types="del" @click="handleDel(file.name)">×</WyButton>
             </header>
             <div class="file-list__mask">
-              <p class="file-list__type">PNG</p>
-              <div v-if="file.uploadProgress < 101">{{ ~~file.uploadProgress < 100 ? '上传中' : file.uploadProgress === 101
-        ? '上传完成' : '转换中' }}</div>
-                  <img class="file-list__img" :src="file.dataSource" alt="图片">
+              <p v-if="file.dataSource" class="file-list__type">PNG</p>
+              <div v-if="file.uploadProgress < 101">
+              {{ ~~file.uploadProgress < 100 ? '上传中' : file.uploadProgress === 101 ? '上传完成' : '转换中' }}
               </div>
-              <footer class="file-list__footer">
-                <WyButton types="round" @click="handleDownload(file)">下载</WyButton>
-              </footer>
+              <img v-if="file.dataSource" class="file-list__img" :src="file.dataSource" alt="图片">
+            </div>
+            <footer class="file-list__footer">
+              <WyButton types="round" @click="handleDownload(file)">下载</WyButton>
+            </footer>
           </li>
         </ul>
+      </div>
+      <div class="file-downloadall">
+        <WyButton types="round" @click="downloadAll" color="blue" :disabled="filesList.length===0">
+          <span class="file-count">{{ filesList.length }}</span>
+          <span>下载全部</span>
+        </WyButton>
       </div>
     </div>
   </div>
@@ -248,6 +273,17 @@ ul {
     font-weight: bold;
     z-index: 1;
   }
+}
 
+.file-downloadall{
+  text-align: center;
+  .btn{
+    position: relative;
+  }
+  .file-count{
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
 }
 </style>

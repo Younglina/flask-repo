@@ -12,12 +12,16 @@ const props = defineProps({
   color: {
     type: String,
     default: '',
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 })
 const classs = `btn ${props.types} ${props.color}`
 </script>
 <template>
-  <button :class="classs">
+  <button :class="classs" :disabled="disabled">
     <slot></slot>
   </button>
 </template>

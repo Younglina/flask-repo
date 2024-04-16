@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/convert': {
+      '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true
       }
