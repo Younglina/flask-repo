@@ -156,6 +156,7 @@ ul {
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
+  padding: 49px 12px;
 }
 
 .flex-center {
@@ -172,6 +173,7 @@ ul {
 
   li {
     background-color: #bae6fd;
+    border: 1px solid #f0f9ff;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
     padding: 4px 8px;
@@ -183,12 +185,13 @@ ul {
   li:hover {
     font-weight: 700;
     background-color: #e0f2fe;
-    box-shadow: -6px -4px 8px -5px #bae6fd, 6px -4px 8px -5px #e0f2fe;
+    box-shadow: 0px -4px 14px -5px #e0f2fe;
   }
 }
 
 .file-wrapper {
-  box-shadow: 0px 2px 16px -2px #bae6fd;
+  box-shadow: 0px 5px 16px -2px #bae6fd;
+  border: 1px solid #f0f9ff;
   padding: 24px 12px;
 }
 
