@@ -28,7 +28,9 @@ const classs = `btn ${props.types} ${props.color}`
 <style scoped lang='less'>
 button {
   border: none;
-  background-color: #fff;
+  font-weight: bold;
+  color: var(--color-black);
+  background-color: var(--color-white);
   border-radius: 4px;
   cursor: pointer;
   padding: 2px;
@@ -55,22 +57,32 @@ button {
 }
 
 .blue {
-  color: #fff;
-  background-color: #38bdf8;
-  border: 1px solid #38bdf8;
+  color: var(--color-white);
+  background-color: var(--color-blue);
+  border: 1px solid var(--color-blue);
 
   &:hover {
-    color: #38bdf8;
+    color: var(--color-blue);
   }
 }
 
 .org {
-  color: #fff;
-  background-color: #fb923c;
-  border: 1px solid #fb923c;
+  color: var(--color-white);
+  background-color: var(--color-org);
+  border: 1px solid var(--color-org);
 
   &:hover {
-    color: #fb923c;
+    color: var(--color-org);
+  }
+}
+
+.gray {
+  color: var(--color-white);
+  background-color: var(--color-gray);
+  border: 1px solid var(--color-gray);
+
+  &:hover {
+    color: var(--color-gray);
   }
 }
 </style>

@@ -1,80 +1,107 @@
 <script setup>
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import WyButton from './components/wyButton.vue';
+import message from './components/message.vue';
 
 const tabs = [
-  { label: 'JPG转PNG', value: 'jpg2png', covertType: 'png' },
-  { label: 'PNG转JPG', value: 'png2jpg', covertType: 'jpg' },
-  { label: 'PDF转JPG', value: 'pdf2jpg', covertType: 'jpg' },
-  { label: 'PDF转PNG', value: 'pdf2png', covertType: 'png' },
+  { label: 'JPG转PNG', value: 'jpg2png' },
+  { label: 'PNG转JPG', value: 'png2jpg' },
+  { label: 'PDF转JPG', value: 'pdf2jpg' },
+  { label: 'PDF转PNG', value: 'pdf2png' },
 ]
-const currnetTab = ref(tabs[0])
-const uuid = ref(uuidv4())
+const uuid = uuidv4()
+const pageData = reactive({
+  currnetTab: tabs[0],
+  filesList: [],
+  downloadCount: 0,
+  showMessage: false,
+  messageTxt: '',
+})
 
-const filesList = ref([])
+const inputFile = ref()
 
 async function handleFileChange(event) {
-  const files = event.target.files || event.dataTransfer.files
-  for (let i = 0; i < files.length; i++) {
-    filesList.value.push({
-      name: files[i].name,
-      showname: files[i].name.length > 7 ? `${files[i].name.slice(0, 3)}...${files[i].name.slice(files[i].name.lastIndexOf('.') - 3)}` : files[i].name,
-      uploadProgress: 0,
-      file: files[i]
-    })
+  let files = Array.from(event.target.files || event.dataTransfer.files)
+  console.log(files);
+  const fileLen = files.length
+  let accetpType = pageData.currnetTab.value.split('2')[0]
+  if (accetpType === 'jpg') {
+    accetpType = ['jpg', 'jpeg']
   }
-  for (const item of filesList.value) {
+  files = files.filter(f => accetpType.includes(f.type.split('/')[1]))
+  files.map(f => {
+    pageData.filesList.push({
+      name: f.name,
+      showname: f.name.length > 7 ? `${f.name.slice(0, 3)}...${f.name.slice(f.name.lastIndexOf('.') - 3)}` : f.name,
+      uploadProgress: 0,
+      file: f
+    })
+  })
+  if (fileLen !== files.length) {
+    pageData.showMessage = true
+    pageData.messageTxt = '已过滤不符合格式的文件'
+  }
+  for (const item of pageData.filesList) {
     if (item.uploadProgress !== 0) continue
     const formData = new FormData()
     formData.append('file', item.file)
-    formData.append('uuid', uuid.value)
-    const res = await axios({
-      url: `/api/convert/${currnetTab.value.value}`,
-      method: "POST",
-      data: formData,
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      onUploadProgress: (progressEvent) => {
-        item.uploadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-      }
-    })
-    item.uploadProgress = 101
-    item.dataSource = "data:image/png;base64," + res.data.data
+    formData.append('uuid', uuid)
+    try {
+      const res = await axios({
+        url: `/api/convert/${pageData.currnetTab.value}`,
+        method: "POST",
+        data: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          item.uploadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        }
+      })
+      item.uploadProgress = 1000
+      item.dataSource = "data:image/png;base64," + res.data.data
+      downloadCount.value++
+    } catch (e) {
+      item.uploadProgress = 101
+    } finally {
+      inputFile.value.value = ''
+    }
   }
 }
 function handleTabChange(tab) {
-  currnetTab.value = tab
-  document.getElementById('inputFile').value = ''
-  filesList.value = []
+  if (tab) {
+    pageData.currnetTab = tab
+  }
+  inputFile.value.value = ''
+  pageData.filesList = []
 }
 function handleDownload(file) {
   const base64Data = file.dataSource;
-  const fileName = file.name.slice(0, file.name.lastIndexOf('.') + 1) + currnetTab.value.covertType;
+  const fileName = file.name.slice(0, file.name.lastIndexOf('.') + 1) + pageData.currnetTab.value.split('2')[1];
   const link = document.createElement('a');
   link.href = base64Data;
   link.download = fileName;
   link.click();
 }
-function downloadAll(){
-    axios({
-      url: `/api/downloadAll/${currnetTab.value.value}`,
-      method: "get",
-      responseType: 'blob',
-      params: { uuid: uuid.value }
-    }).then(res=>{
-      const blob = new Blob([res.data], { type: 'application/zip' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${currnetTab.value.value}.zip`);
-      link.click();
-    })
+function downloadAll() {
+  axios({
+    url: `/api/downloadAll/${pageData.currnetTab.value}`,
+    method: "get",
+    responseType: 'blob',
+    params: uuid
+  }).then(res => {
+    const blob = new Blob([res.data], { type: 'application/zip' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${pageData.currnetTab.value}.zip`);
+    link.click();
+  })
 }
 function handleDel(file) {
-  filesList.value = filesList.value.filter(item => item.name !== file.name)
+  pageData.filesList = pageData.filesList.filter(item => item.name !== file.name)
 }
 function handleDrop(e) {
   e.preventDefault();
@@ -88,49 +115,49 @@ function handleDragover(e) {
 </script>
 
 <template>
-  <div id="app">
+  <div id="convert-app">
     <ul class="tabs">
       <li v-for="item in tabs" :key="item.value" @click="handleTabChange(item)"
-        :class="{ 'active': currnetTab.value === item.value }">{{ item.label }}</li>
+        :class="{ 'active': pageData.currnetTab.value === item.value }">{{ item.label }}</li>
     </ul>
 
     <div class="file-wrapper">
       <input type="file" id="inputFile" ref="inputFile" style="display: none" multiple @change="handleFileChange">
       <div class="file-opts">
         <WyButton types="round" @click="$refs.inputFile.click()" color="blue">上传</WyButton>
-        <WyButton types="round" @click="$refs.inputFile.click()" color="org">清空</WyButton>
+        <WyButton types="round" @click="handleTabChange()" color="org">清空</WyButton>
       </div>
       <div class="file-list-wrapper">
-        <div v-if="filesList.length === 0" class="file-drop" @dragover="handleDragover" @drop="handleDrop">
+        <div v-if="pageData.filesList.length === 0" class="file-drop" @dragover="handleDragover" @drop="handleDrop">
           <p>可拖拽文件上传</p>
         </div>
         <ul v-else class="file-list">
-          <li v-for="file in filesList" class="file-list__item">
+          <li v-for="file in pageData.filesList" class="file-list__item">
             <header class="file-list__header">
               <p>{{ file.showname }}</p>
               <WyButton types="del" @click="handleDel(file.name)">×</WyButton>
             </header>
             <div class="file-list__mask">
               <p v-if="file.dataSource" class="file-list__type">PNG</p>
-              <div v-if="file.uploadProgress < 101">
-              {{ ~~file.uploadProgress < 100 ? '上传中' : file.uploadProgress === 101 ? '上传完成' : '转换中' }}
+              <div v-if="file.uploadProgress !== 1000">
+                {{ ~~file.uploadProgress < 100 ? '上传中' : (file.uploadProgress === 101 ? '上传失败' : '转换中') }} </div>
+                  <img v-if="file.dataSource" class="file-list__img" :src="file.dataSource" alt="图片">
               </div>
-              <img v-if="file.dataSource" class="file-list__img" :src="file.dataSource" alt="图片">
-            </div>
-            <footer class="file-list__footer">
-              <WyButton types="round" @click="handleDownload(file)">下载</WyButton>
-            </footer>
+              <footer class="file-list__footer">
+                <WyButton types="round" @click="handleDownload(file)">下载</WyButton>
+              </footer>
           </li>
         </ul>
       </div>
       <div class="file-downloadall">
-        <WyButton types="round" @click="downloadAll" color="blue" :disabled="filesList.length===0">
-          <span class="file-count">{{ filesList.length }}</span>
-          <span>下载全部</span>
+        <WyButton types="round" @click="downloadAll" color="gray" :disabled="pageData.filesList.length === 0">
+          <span class="file-count">{{ pageData.downloadCount }}</span>
+          <span>全部下载</span>
         </WyButton>
       </div>
     </div>
   </div>
+  <message v-if="pageData.showMessage" @close="pageData.showMessage = false" :message="pageData.messageTxt" />
 </template>
 
 <style lang="less">
@@ -151,7 +178,7 @@ ul {
   list-style: none;
 }
 
-#app {
+#convert-app {
   height: 100%;
   width: 100%;
   max-width: 960px;
@@ -168,12 +195,12 @@ ul {
 .tabs {
   display: flex;
   font-size: 12px;
-  color: #000000;
+  color: var(--color-black);
   font-weight: 500;
 
   li {
-    background-color: #bae6fd;
-    border: 1px solid #f0f9ff;
+    background-color: var(--color-blue-200);
+    border: 1px solid var(--color-blue-50);
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
     padding: 4px 8px;
@@ -184,14 +211,14 @@ ul {
   li.active,
   li:hover {
     font-weight: 700;
-    background-color: #e0f2fe;
-    box-shadow: 0px -4px 14px -5px #e0f2fe;
+    background-color: var(--color-blue-100);
+    box-shadow: 0px -4px 14px -5px var(--color-blue-100);
   }
 }
 
 .file-wrapper {
-  box-shadow: 0px 5px 16px -2px #bae6fd;
-  border: 1px solid #f0f9ff;
+  box-shadow: 0px 5px 16px -2px var(--color-blue-200);
+  border: 1px solid var(--color-blue-50);
   padding: 24px 12px;
 }
 
@@ -207,7 +234,7 @@ ul {
   .flex-center;
   margin: 12px 0;
   height: 196px;
-  color: #7dd3fc;
+  color: var(--color-blue);
   font-weight: bold;
   border: 1px dashed currentColor;
   border-radius: 8px;
@@ -223,7 +250,7 @@ ul {
     height: 196px;
     margin-right: 16px;
     position: relative;
-    color: #fff;
+    color: var(--color-white);
   }
 
   &__header,
@@ -278,15 +305,27 @@ ul {
   }
 }
 
-.file-downloadall{
+.file-downloadall {
   text-align: center;
-  .btn{
+
+  .btn {
     position: relative;
   }
-  .file-count{
+
+  .file-count {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: -7px;
+    right: -7px;
+    border: 2px solid var(--color-white);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    background-color: var(--color-gray);
+    color: var(--color-white);
   }
 }
 </style>
