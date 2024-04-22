@@ -1,7 +1,7 @@
 <script setup>
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import WyButton from './components/wyButton.vue';
 import message from './components/message.vue';
 
@@ -20,6 +20,7 @@ const pageData = reactive({
   messageTxt: '',
 })
 
+const convertImgType = computed(() => pageData.currnetTab.value.split('2')[1])
 const inputFile = ref()
 
 async function handleFileChange(event) {
@@ -61,9 +62,10 @@ async function handleFileChange(event) {
         }
       })
       item.uploadProgress = 1000
-      item.dataSource = "data:image/png;base64," + res.data.data
-      downloadCount.value++
+      item.dataSource = `data:image/${convertImgType.value};base64,${res.data.data}`
+      pageData.downloadCount++
     } catch (e) {
+      console.error(e);
       item.uploadProgress = 101
     } finally {
       inputFile.value.value = ''
@@ -75,33 +77,41 @@ function handleTabChange(tab) {
     pageData.currnetTab = tab
   }
   inputFile.value.value = ''
+  pageData.downloadCount = 0
   pageData.filesList = []
 }
 function handleDownload(file) {
-  const base64Data = file.dataSource;
-  const fileName = file.name.slice(0, file.name.lastIndexOf('.') + 1) + pageData.currnetTab.value.split('2')[1];
-  const link = document.createElement('a');
-  link.href = base64Data;
-  link.download = fileName;
-  link.click();
+  if (pageData.currnetTab.value.includes('pdf')) {
+    downloadZip(file.name)
+  } else {
+    const base64Data = file.dataSource;
+    const fileName = file.name.slice(0, file.name.lastIndexOf('.') + 1) + pageData.currnetTab.value.split('2')[1];
+    const link = document.createElement('a');
+    link.href = base64Data;
+    link.download = fileName;
+    link.click();
+  }
 }
-function downloadAll() {
+function downloadZip(v) {
   axios({
-    url: `/api/downloadAll/${pageData.currnetTab.value}`,
+    url: `/api/downloadZip/${v || pageData.currnetTab.value}`,
     method: "get",
     responseType: 'blob',
-    params: uuid
+    params: {
+      uuid: uuid,
+      all: v === ''
+    }
   }).then(res => {
     const blob = new Blob([res.data], { type: 'application/zip' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${pageData.currnetTab.value}.zip`);
+    link.setAttribute('download', `${v || pageData.currnetTab.value}.zip`);
     link.click();
   })
 }
-function handleDel(file) {
-  pageData.filesList = pageData.filesList.filter(item => item.name !== file.name)
+function handleDel(name) {
+  pageData.filesList = pageData.filesList.filter(item => item.name !== name)
 }
 function handleDrop(e) {
   e.preventDefault();
@@ -138,19 +148,21 @@ function handleDragover(e) {
               <WyButton types="del" @click="handleDel(file.name)">×</WyButton>
             </header>
             <div class="file-list__mask">
-              <p v-if="file.dataSource" class="file-list__type">PNG</p>
               <div v-if="file.uploadProgress !== 1000">
                 {{ ~~file.uploadProgress < 100 ? '上传中' : (file.uploadProgress === 101 ? '上传失败' : '转换中') }} </div>
                   <img v-if="file.dataSource" class="file-list__img" :src="file.dataSource" alt="图片">
+                  <p v-if="file.uploadProgress === 1000" class="file-list__type">{{ convertImgType.toLocaleUpperCase()
+                    }}{{ file.name.includes('pdf') ? '.zip' : '' }}
+                  </p>
               </div>
-              <footer class="file-list__footer">
+              <footer v-if="file.dataSource" class="file-list__footer">
                 <WyButton types="round" @click="handleDownload(file)">下载</WyButton>
               </footer>
           </li>
         </ul>
       </div>
       <div class="file-downloadall">
-        <WyButton types="round" @click="downloadAll" color="gray" :disabled="pageData.filesList.length === 0">
+        <WyButton types="round" @click="downloadZip()" color="gray" :disabled="pageData.downloadCount === 0">
           <span class="file-count">{{ pageData.downloadCount }}</span>
           <span>全部下载</span>
         </WyButton>

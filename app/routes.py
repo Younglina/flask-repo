@@ -13,15 +13,23 @@ from app import app
 UPLOAD_FOLDER = os.path.join(app.root_path, "uploads")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-@app.route("/api/downloadAll/<ctype>", methods=["GET"])
+
+@app.route("/api/downloadZip/<ctype>", methods=["GET"])
 def download_zip(ctype):
     uuid = str(request.args.get("uuid"))
+    isAll = str(request.args.get("all"))
     zip_path = os.path.join(app.config["UPLOAD_FOLDER"], uuid)
-    to_zip(zip_path, ctype)
+    if isAll:
+        to_zip(zip_path, ctype)
     if os.path.exists(zip_path):
-        return send_file(os.path.join(zip_path, f'{ctype}.zip'), as_attachment=True, download_name=f'{ctype}.zip')
+        return send_file(
+            os.path.join(zip_path, f"{ctype}.zip"),
+            as_attachment=True,
+            download_name=f"{ctype}.zip",
+        )
     else:
-        return 'File not found', 404
+        return "File not found", 404
+
 
 @app.route("/api/convert/<ctype>", methods=["POST"])
 def conver_image(ctype):
@@ -44,11 +52,13 @@ def conver_image(ctype):
         if ctype == "word2jpg":
             # word2jpgAspose(filepath, filename)
             return {"code": 200}
-        if ctype == "pdf2png":
-            pdf2png(filepath, directory, notype_name)
-            to_zip(directory, notype_name, uuid_v4)
+        if ctype in ["pdf2png", "pdf2jpg"]:
+            image_type = ctype.split("2")[1]
+            print(image_type)
+            pdf2image(filepath, directory, notype_name, image_type)
+            to_zip(directory, notype_name)
             with open(
-                os.path.join(directory, f"{notype_name}0.png"), "rb"
+                os.path.join(directory, f"{notype_name}0.{image_type}"), "rb"
             ) as image_file:
                 image_data = image_file.read()
                 base64_data = base64.b64encode(image_data).decode("utf-8")
@@ -77,12 +87,12 @@ def conver_image(ctype):
             # )
 
 
-def pdf2png(filepath, directory, notype_name):
+def pdf2image(filepath, directory, notype_name, image_type):
     doc = fitz.open(filepath)
     for page_index in range(doc.page_count):
         page = doc.load_page(page_index)
-        image_bytes = page.get_pixmap(dpi=300).tobytes("png")
-        image_filename = f"{notype_name}{page_index}.png"
+        image_bytes = page.get_pixmap(dpi=300).tobytes(image_type)
+        image_filename = f"{notype_name}{page_index}.{image_type}"
         image_path = os.path.join(directory, image_filename)
         with open(image_path, "wb") as f:
             f.write(image_bytes)

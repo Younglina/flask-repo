@@ -85,4 +85,14 @@ button {
     color: var(--color-gray);
   }
 }
+
+.btn:disabled {
+  color: var(--color-white);
+  background-color: var(--color-gray);
+  cursor: not-allowed;
+
+  &:hover {
+    color: var(--color-white);
+  }
+}
 </style>
