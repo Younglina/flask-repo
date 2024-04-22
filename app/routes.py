@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, render_template
 import fitz
 import zipfile
 import base64
@@ -13,6 +13,9 @@ from app import app
 UPLOAD_FOLDER = os.path.join(app.root_path, "uploads")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+@app.route("/flask")
+def index():  
+    return render_template('index.html')
 
 @app.route("/api/downloadZip/<ctype>", methods=["GET"])
 def download_zip(ctype):
