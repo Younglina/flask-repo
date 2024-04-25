@@ -5,6 +5,9 @@ import { computed, reactive, ref } from 'vue'
 import WyButton from './components/wyButton.vue';
 import message from './components/message.vue';
 
+const http = axios.create({
+  baseURL: 'http://localhost:5000',
+})
 const tabs = [
   { label: 'JPG转PNG', value: 'jpg2png' },
   { label: 'PNG转JPG', value: 'png2jpg' },
